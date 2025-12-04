@@ -354,6 +354,41 @@ def make_guess():
         200,
     )
 
+@app.route('/api/leaderboard', methods=['GET'])
+def get_leaderboard():
+    """Return top players ordered by wins (then fewest losses)."""
+    db_gen = get_db()
+    db = next(db_gen)
 
+    try:
+        # Get top 10 users by wins, tiebreaker by fewest losses, then username
+        users = (
+            db.query(User)
+            .order_by(User.wins.desc(), User.losses.asc(), User.username.asc())
+            .limit(10)
+            .all()
+        )
+
+        leaderboard = []
+        for i, u in enumerate(users, start=1):
+            leaderboard.append({
+                'rank': i,
+                'username': u.username,
+                'wins': u.wins or 0,
+                'losses': u.losses or 0,
+            })
+
+        return jsonify({'success': True, 'leaderboard': leaderboard}), 200
+
+    except Exception as e:
+        print("Leaderboard error:", e)
+        return jsonify({'success': False, 'error': 'Failed to load leaderboard'}), 500
+
+    finally:
+        # Close DB session generator safely (same pattern you use elsewhere)
+        try:
+            next(db_gen, None)
+        except StopIteration:
+            pass
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=5000)
