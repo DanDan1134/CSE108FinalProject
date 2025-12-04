@@ -4,25 +4,118 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wordle Battle</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #121213;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+
+        h1, h2 {
+            margin: 0.5em 0;
+        }
+
+        #auth-section, #game-section {
+            margin-top: 40px;
+        }
+
+        form {
+            margin-top: 1em;
+        }
+
+        label {
+            display: inline-block;
+            width: 90px;
+            text-align: right;
+            margin-right: 8px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            padding: 5px;
+            font-size: 16px;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        a {
+            color: #58a6ff;
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 10;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7);
+        }
+
+        .modal-content {
+            background-color: #1f2933;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #374151;
+            width: 80%;
+            max-width: 500px;
+            color: #ffffff;
+        }
+
+        .close-modal {
+            float: right;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        table {
+            margin: 0 auto;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid #374151;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #111827;
+        }
+    </style>
 </head>
 <body>
     <!-- Login/Signup Section -->
     <div id="auth-section">
         <h1>Wordle Battle</h1>
+
         <div id="login-form">
             <h2>Login</h2>
             <form id="loginForm">
                 <div>
                     <label for="login-username">Username:</label>
-                    <input type="text" id="login-username">
+                    <input type="text" id="login-username" required>
                 </div>
-                <div>
+                <div style="margin-top: 8px;">
                     <label for="login-password">Password:</label>
-                    <input type="password" id="login-password">
+                    <input type="password" id="login-password" required>
                 </div>
-                <button type="submit">Login</button>
+                <div style="margin-top: 12px;">
+                    <button type="submit">Login</button>
+                </div>
             </form>
-            <p>Don't have an account? <a href="#" id="show-signup">Sign up</a></p>
+            <p style="margin-top: 10px;">
+                Don't have an account?
+                <a href="#" id="show-signup">Sign up</a>
+            </p>
         </div>
 
         <div id="signup-form" style="display: none;">
@@ -30,21 +123,26 @@
             <form id="signupForm">
                 <div>
                     <label for="signup-username">Username:</label>
-                    <input type="text" id="signup-username">
+                    <input type="text" id="signup-username" required>
                 </div>
-                <div>
+                <div style="margin-top: 8px;">
                     <label for="signup-password">Password:</label>
                     <input type="password" id="signup-password" required>
                 </div>
-                <button type="submit">Sign Up</button>
+                <div style="margin-top: 12px;">
+                    <button type="submit">Sign Up</button>
+                </div>
             </form>
-            <p>Already have an account? <a href="#" id="show-login">Login</a></p>
+            <p style="margin-top: 10px;">
+                Already have an account?
+                <a href="#" id="show-login">Login</a>
+            </p>
         </div>
     </div>
 
-    <!-- Game Section (hidden initially) -->
+    <!-- Main Menu / Game Section (after login) -->
     <div id="game-section" style="display: none;">
-        <div style="position: relative; width: 100%;">
+        <div style="position: relative; width: 100%; max-width: 800px; margin: 0 auto;">
             <div style="position: absolute; top: 0; left: 0;">
                 <button id="logout-button">Logout</button>
             </div>
@@ -52,200 +150,205 @@
                 <button id="leaderboard-button" style="margin-right: 10px;">Leaderboard</button>
                 <button id="stats-button">Stats</button>
             </div>
-        </div>
-        
-        <div style="text-align: center; margin-top: 50px;">
-            <h1>Wordle Battle</h1>
-            <p style="max-width: 600px; margin: 20px auto; font-size: 18px;">
-                Compete head-to-head in a fast-paced Wordle challenge! 
-                Match wits with another player and see who can guess more words 
-                in the time limit. Each correct guess earns points, and the player 
-                with the highest score wins!
-            </p>
-            <button id="play-button" style="font-size: 24px; padding: 20px 40px; margin-top: 30px;">
-                PLAY
-            </button>
+
+            <div style="padding-top: 40px;">
+                <h1>Wordle Battle</h1>
+                <p>Welcome! Choose a mode to play.</p>
+
+                <div style="margin-top: 30px;">
+                    <button id="play-button" style="font-size: 24px; padding: 20px 40px; margin: 10px;">
+                        Single Player
+                    </button>
+
+                    <button id="multiplayer-button" style="font-size: 20px; padding: 15px 30px; margin: 10px;" disabled>
+                        Multiplayer (coming soon)
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Stats Modal (hidden initially) -->
-    <div id="stats-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 2px solid black; padding: 20px; z-index: 1000;">
-        <h2>Your Statistics</h2>
-        <div>
-            <p><strong>Wins:</strong> <span id="wins-count">0</span></p>
-            <p><strong>Losses:</strong> <span id="losses-count">0</span></p>
+    <!-- Stats Modal -->
+    <div id="stats-modal" class="modal">
+        <div class="modal-content">
+            <span id="close-stats" class="close-modal">&times;</span>
+            <h2>Your Stats</h2>
+            <p>Wins: <span id="wins-count">0</span></p>
+            <p>Losses: <span id="losses-count">0</span></p>
         </div>
-        <button id="close-stats">Close</button>
     </div>
 
-    <!-- Leaderboard Modal (hidden initially) -->
-    <div id="leaderboard-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 2px solid black; padding: 20px; z-index: 1000; min-width: 400px;">
-        <h2>Leaderboard</h2>
-        <div id="leaderboard-content">
-            <table style="width: 100%; border-collapse: collapse;">
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="modal">
+        <div class="modal-content">
+            <span id="close-leaderboard" class="close-modal">&times;</span>
+            <h2>Leaderboard</h2>
+            <p>(Backend leaderboard endpoint can be added later.)</p>
+            <table>
                 <thead>
                     <tr>
-                        <th style="text-align: left; border-bottom: 1px solid black; padding: 10px;">Rank</th>
-                        <th style="text-align: left; border-bottom: 1px solid black; padding: 10px;">Username</th>
-                        <th style="text-align: left; border-bottom: 1px solid black; padding: 10px;">Wins/Losses</th>
+                        <th>Rank</th>
+                        <th>Username</th>
+                        <th>Wins</th>
+                        <th>Losses</th>
                     </tr>
                 </thead>
                 <tbody id="leaderboard-body">
-                    <!-- Leaderboard entries will be populated here in the future -->
                     <tr>
-                        <td style="padding: 10px;">-</td>
-                        <td style="padding: 10px;">(Coming soon)</td>
-                        <td style="padding: 10px;">-</td>
+                        <td colspan="4">Coming soon...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
-        <button id="close-leaderboard" style="margin-top: 15px;">Close</button>
     </div>
 
     <script>
-        // Check if user is already logged in on page load
-        async function checkAuth() {
-            try {
-                const response = await fetch('/api/check-auth');
-                const data = await response.json();
-                
-                if (data.authenticated) {
-                    document.getElementById('auth-section').style.display = 'none';
-                    document.getElementById('game-section').style.display = 'block';
-                }
-            } catch (error) {
-                console.error('Auth check error:', error);
-            }
-        }
-        
-        // Check authentication on page load
-        checkAuth();
-        
-        // Toggle between login and signup forms
-        document.getElementById('show-signup').addEventListener('click', function(e) {
+        // Toggle between login and signup views
+        document.getElementById('show-signup').addEventListener('click', function (e) {
             e.preventDefault();
             document.getElementById('login-form').style.display = 'none';
             document.getElementById('signup-form').style.display = 'block';
         });
 
-        document.getElementById('show-login').addEventListener('click', function(e) {
+        document.getElementById('show-login').addEventListener('click', function (e) {
             e.preventDefault();
             document.getElementById('signup-form').style.display = 'none';
             document.getElementById('login-form').style.display = 'block';
         });
 
-        // Handle login
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        // Helper: refresh stats from /api/check-auth
+        async function refreshStats() {
+            try {
+                const response = await fetch('/api/check-auth');
+                const data = await response.json();
+                if (data.authenticated && data.user) {
+                    document.getElementById('wins-count').textContent = data.user.wins;
+                    document.getElementById('losses-count').textContent = data.user.losses;
+                }
+            } catch (err) {
+                console.error('Failed to refresh stats', err);
+            }
+        }
+
+        // Auth: login
+        document.getElementById('loginForm').addEventListener('submit', async function (e) {
             e.preventDefault();
-            const username = document.getElementById('login-username').value;
+            const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value;
-            
+
             try {
                 const response = await fetch('/api/login', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-                
+
                 const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('auth-section').style.display = 'none';
-                    document.getElementById('game-section').style.display = 'block';
-                } else {
-                    alert('Error: ' + data.error);
+
+                if (!response.ok || !data.success) {
+                    alert(data.error || 'Login failed');
+                    return;
                 }
-            } catch (error) {
+
+                // Show game section
+                document.getElementById('auth-section').style.display = 'none';
+                document.getElementById('game-section').style.display = 'block';
+                await refreshStats();
+            } catch (err) {
                 alert('Error: Failed to connect to server');
-                console.error('Login error:', error);
+                console.error('Login error:', err);
             }
         });
 
-        // Handle signup
-        document.getElementById('signupForm').addEventListener('submit', async function(e) {
+        // Auth: signup
+        document.getElementById('signupForm').addEventListener('submit', async function (e) {
             e.preventDefault();
-            const username = document.getElementById('signup-username').value;
+            const username = document.getElementById('signup-username').value.trim();
             const password = document.getElementById('signup-password').value;
-            
+
             try {
                 const response = await fetch('/api/register', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-                
+
                 const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('auth-section').style.display = 'none';
-                    document.getElementById('game-section').style.display = 'block';
-                } else {
-                    alert('Error: ' + data.error);
+
+                if (!response.ok || !data.success) {
+                    alert(data.error || 'Sign up failed');
+                    return;
                 }
-            } catch (error) {
+
+                // Show game section right after signup
+                document.getElementById('auth-section').style.display = 'none';
+                document.getElementById('game-section').style.display = 'block';
+                await refreshStats();
+            } catch (err) {
                 alert('Error: Failed to connect to server');
-                console.error('Signup error:', error);
+                console.error('Signup error:', err);
             }
         });
 
-        // Handle play button
-        document.getElementById('play-button').addEventListener('click', function() {
-            alert('Play button clicked! (Game matching will be implemented here)');
-        });
-
-        // Handle logout button
-        document.getElementById('logout-button').addEventListener('click', async function() {
+        // Logout
+        document.getElementById('logout-button').addEventListener('click', async function () {
             try {
                 const response = await fetch('/api/logout', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
+                    method: 'POST'
                 });
-                
                 const data = await response.json();
-                
                 if (data.success) {
-                    // Hide game section and show login section
                     document.getElementById('game-section').style.display = 'none';
                     document.getElementById('auth-section').style.display = 'block';
-                    // Reset forms
-                    document.getElementById('loginForm').reset();
-                    document.getElementById('signupForm').reset();
-                } else {
-                    alert('Error: Failed to logout');
                 }
-            } catch (error) {
-                alert('Error: Failed to connect to server');
-                console.error('Logout error:', error);
+            } catch (err) {
+                console.error('Logout error:', err);
             }
         });
 
-        // Handle stats button
-        document.getElementById('stats-button').addEventListener('click', function() {
+        // Stats modal
+        document.getElementById('stats-button').addEventListener('click', async function () {
+            await refreshStats();
             document.getElementById('stats-modal').style.display = 'block';
         });
 
-        // Close stats modal
-        document.getElementById('close-stats').addEventListener('click', function() {
+        document.getElementById('close-stats').addEventListener('click', function () {
             document.getElementById('stats-modal').style.display = 'none';
         });
 
-        // Handle leaderboard button
-        document.getElementById('leaderboard-button').addEventListener('click', function() {
+        // Leaderboard modal (currently static UI)
+        document.getElementById('leaderboard-button').addEventListener('click', function () {
             document.getElementById('leaderboard-modal').style.display = 'block';
         });
 
-        // Close leaderboard modal
-        document.getElementById('close-leaderboard').addEventListener('click', function() {
+        document.getElementById('close-leaderboard').addEventListener('click', function () {
             document.getElementById('leaderboard-modal').style.display = 'none';
         });
+
+        // PLAY / Single Player button -> go to dedicated single-player page
+        document.getElementById('play-button').addEventListener('click', function () {
+            window.location.href = '/singleplayer';
+        });
+
+        // On page load, check auth state
+        (async function checkAuthOnLoad() {
+            try {
+                const response = await fetch('/api/check-auth');
+                const data = await response.json();
+                if (data.authenticated && data.user) {
+                    document.getElementById('auth-section').style.display = 'none';
+                    document.getElementById('game-section').style.display = 'block';
+                    await refreshStats();
+                } else {
+                    document.getElementById('auth-section').style.display = 'block';
+                    document.getElementById('game-section').style.display = 'none';
+                }
+            } catch (err) {
+                console.error('check-auth error:', err);
+                document.getElementById('auth-section').style.display = 'block';
+                document.getElementById('game-section').style.display = 'none';
+            }
+        })();
     </script>
 </body>
 </html>
-
