@@ -317,9 +317,51 @@
         });
 
         // Leaderboard modal (currently static UI)
-        document.getElementById('leaderboard-button').addEventListener('click', function () {
-            document.getElementById('leaderboard-modal').style.display = 'block';
-        });
+        // Handle leaderboard button
+document.getElementById('leaderboard-button').addEventListener('click', async function () {
+    const tbody = document.getElementById('leaderboard-body');
+    tbody.innerHTML = '';
+
+    try {
+        const response = await fetch('/api/leaderboard');
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            // Show a simple error row
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td colspan="3" style="padding: 10px;">Failed to load leaderboard</td>
+            `;
+            tbody.appendChild(row);
+        } else if (!data.leaderboard || data.leaderboard.length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td colspan="3" style="padding: 10px;">No players yet</td>
+            `;
+            tbody.appendChild(row);
+        } else {
+            data.leaderboard.forEach(player => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="padding: 10px;">${player.rank}</td>
+                    <td style="padding: 10px;">${player.username}</td>
+                    <td style="padding: 10px;">${player.wins} / ${player.losses}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+    } catch (err) {
+        console.error('Leaderboard fetch error:', err);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td colspan="3" style="padding: 10px;">Error connecting to server</td>
+        `;
+        tbody.appendChild(row);
+    }
+
+    document.getElementById('leaderboard-modal').style.display = 'block';
+});
+
 
         document.getElementById('close-leaderboard').addEventListener('click', function () {
             document.getElementById('leaderboard-modal').style.display = 'none';
