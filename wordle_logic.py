@@ -7,9 +7,14 @@ words_file = os.path.join(os.path.dirname(__file__), "data", "valid_words.txt")
 with open(words_file, "r") as f:
     VALID_WORDS = set(word.strip().upper() for word in f if word.strip())
 
+# Convert to list for random.choice() - sets are not subscriptable
+VALID_WORDS_LIST = list(VALID_WORDS)
+
 
 def random_word():
-    return random.choice(VALID_WORDS)
+    wordchoice = random.choice(VALID_WORDS_LIST)
+    print(f"\n\nRandom word is {wordchoice}\n\n")
+    return wordchoice
 
 
 def is_valid_word(word: str) -> bool:

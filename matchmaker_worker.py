@@ -27,38 +27,36 @@ def start_matchmaker():
     while True:
         try:
             # Block until at least one player is available
-            """result = r.brpop(QUEUE_KEY, timeout=0)
-            if not result:
-                continue
-            
-            _, p1 = result"""
-
             result = r.brpop(QUEUE_KEY, timeout=0)
-            print("BRPOP raw result:", result, type(result))
-
+            
             if result is None:
                 print("BRPOP returned None, skipping iteration")
                 continue
 
-            # Verify it’s a list/tuple
+            # Verify it's a list/tuple
             if not isinstance(result, (list, tuple)) or len(result) != 2:
                 print("Unexpected BRPOP format, skipping iteration")
                 continue
 
             _, p1 = result
-            print("P1:", p1)
+            print(f"Player {p1} pulled from queue")
             
-            # Try to get second player immediately
-            p2 = r.rpop(QUEUE_KEY)
+            # Try to get second player with a short timeout (non-blocking check)
+            result2 = r.brpop(QUEUE_KEY, timeout=1)
             
-            if not p2:
-                # Only one player available, push back and wait
+            if not result2:
+                # Only one player available, push back and wait longer
+                print(f"No second player found, pushing {p1} back to queue")
                 r.lpush(QUEUE_KEY, p1)
-                time.sleep(1)
+                time.sleep(2)  # Wait before trying again
                 continue
             
+            _, p2 = result2
+            print(f"Player {p2} pulled from queue")
+            
             # Ensure we don't match a player with themselves
-            if p1 == p2:
+            if str(p1) == str(p2):
+                print(f"Same player ID detected ({p1}), pushing back")
                 r.lpush(QUEUE_KEY, p1)
                 continue
             
@@ -74,14 +72,14 @@ def start_matchmaker():
             match_found_payload = {
                 "type": "match_found",
                 "room": room,
-                "players": [p1, p2]
+                "players": [str(p1), str(p2)]
             }
             r.publish(EVENT_CHANNEL, json.dumps(match_found_payload))
             
             # Signal game_worker to start timer for this room
             start_game_payload = {
                 "room": room,
-                "players": [p1, p2]
+                "players": [str(p1), str(p2)]
             }
             r.publish(START_GAME_CHANNEL, json.dumps(start_game_payload))
             
@@ -90,6 +88,8 @@ def start_matchmaker():
             time.sleep(1)
         except Exception as e:
             print(f"Unexpected error in matchmaker: {e}")
+            import traceback
+            traceback.print_exc()
             time.sleep(1)
 
 if __name__ == "__main__":

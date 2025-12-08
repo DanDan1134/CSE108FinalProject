@@ -110,7 +110,6 @@ def login():
     username = data.get("username", "").strip()
     password = data.get("password", "")
 
-
     print(f"\n\nUsername trying to connect is {username}\n\n")
     
     user = User.query.filter_by(username=username).first()
@@ -222,14 +221,19 @@ def on_submit_guess(data):
         emit("guess_error", {"error": "Guess must contain only letters"})
         return
     
-    # Get or assign player's secret word
-    secret = game_module.get_player_word(r, player_id)
+    # Validate word is in dictionary
+    if not is_valid_word(guess):
+        emit("guess_error", {"error": "Not a valid word"})
+        return
+    
+    # Get player's secret word (scoped to room)
+    secret = game_module.get_player_word(r, room, player_id)
     if not secret:
-        secret = random_word()
-        game_module.set_player_word(r, player_id, secret)
+        emit("guess_error", {"error": "Game not started properly"})
+        return
     
     # Evaluate guess
-    result = evaluate_guess(guess, secret)
+    result = evaluate_guess(secret, guess)
     emit("guess_feedback", {
         "guess": guess,
         "colors": result["colors"],
@@ -245,7 +249,7 @@ def on_submit_guess(data):
         
         # Assign new word for this player
         new_word = random_word()
-        game_module.set_player_word(r, player_id, new_word)
+        game_module.set_player_word(r, room, player_id, new_word)
         emit("new_word", {"word_length": len(new_word), "message": "Correct! New word assigned"})
 
 @socketio.on("disconnect")
@@ -305,261 +309,9 @@ def start_redis_listener():
             print(f"Error processing pubsub message: {e}")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"""
-# --------------------
-# Single-player game API
-# --------------------
-@app.route("/singleplayer")
-@login_required
-def singleplayer_page():
-    
-    return render_template("singleplayer.html")
-
-@app.route("/api/new-game", methods=["POST"])
-def new_game():
-    
-    if "user_id" not in session:
-        return jsonify({"success": False, "error": "Not logged in"}), 401
-
-    # Choose a random target word of the right length from the valid list
-    candidates = [w for w in VALID_WORDS if len(w) == WORD_LENGTH]
-    if not candidates:
-        return (
-            jsonify(
-                {
-                    "success": False,
-                    "error": "No valid words available on server",
-                }
-            ),
-            500,
-        )
-
-    target = random.choice(candidates)  # words are uppercase in VALID_WORDS
-
-    # Store game state in the session
-    session["game"] = {
-        "target": target,
-        "guesses": [],
-        "status": "in_progress",
-    }
-
-    return (
-        jsonify(
-            {
-                "success": True,
-                "message": "New game started",
-                "max_guesses": MAX_GUESSES,
-                "word_length": WORD_LENGTH,
-            }
-        ),
-        200,
-    )
-
-
-@app.route("/api/guess", methods=["POST"])
-def make_guess():
-    
-    if "user_id" not in session:
-        return jsonify({"success": False, "error": "Not logged in"}), 401
-
-    game = session.get("game")
-    if not game or game.get("status") != "in_progress":
-        return jsonify({"success": False, "error": "No active game"}), 400
-
-    data = request.get_json() or {}
-    guess_raw = (data.get("guess") or "").strip()
-    guess = guess_raw.upper()
-
-    # Basic validation
-    if len(guess) != WORD_LENGTH:
-        return (
-            jsonify(
-                {
-                    "success": False,
-                    "error": f"Guess must be {WORD_LENGTH} letters",
-                }
-            ),
-            400,
-        )
-
-    if not is_valid_word(guess):
-        return jsonify({"success": False, "error": "Not in word list"}), 400
-
-    target = game["target"]
-    feedback = evaluate_guess(target, guess)
-
-    # Record the guess
-    guesses = game.get("guesses", [])
-    guesses.append({"guess": guess, "feedback": feedback})
-    game["guesses"] = guesses
-
-    # Win / lose logic
-    won = guess == target
-    lost = len(guesses) >= MAX_GUESSES and not won
-
-    if won:
-        game["status"] = "won"
-    elif lost:
-        game["status"] = "lost"
-
-    session["game"] = game  # save back into session
-
-    # If game ended, update the user's win/loss counters
-    result = None
-    if won or lost:
-        db_gen = get_db()
-        db = next(db_gen)
-        try:
-            user = db.query(User).filter(User.id == session["user_id"]).first()
-            if user:
-                if won:
-                    if getattr(user, "wins", None) is not None:
-                        user.wins += 1
-                    result = "win"
-                else:
-                    if getattr(user, "losses", None) is not None:
-                        user.losses += 1
-                    result = "loss"
-                db.commit()
-        except Exception:
-            db.rollback()
-        finally:
-            try:
-                next(db_gen, None)
-            except StopIteration:
-                pass
-
-    return (
-        jsonify(
-            {
-                "success": True,
-                "feedback": feedback,  # e.g. ["correct","present","miss",...]
-                "guesses": guesses,    # full history of guesses + feedback
-                "status": game["status"],  # "in_progress", "won", or "lost"
-                "result": result,      # "win", "loss", or None
-                "target": target if (won or lost) else None,
-            }
-        ),
-        200,
-    )
-
-@app.route('/api/leaderboard', methods=['GET'])
-def get_leaderboard():
-   
-    db_gen = get_db()
-    db = next(db_gen)
-
-    try:
-        # Get top 10 users by wins, tiebreaker by fewest losses, then username
-        users = (
-            db.query(User)
-            .order_by(User.wins.desc(), User.losses.asc(), User.username.asc())
-            .limit(10)
-            .all()
-        )
-
-        leaderboard = []
-        for i, u in enumerate(users, start=1):
-            leaderboard.append({
-                'rank': i,
-                'username': u.username,
-                'wins': u.wins or 0,
-                'losses': u.losses or 0,
-            })
-
-        return jsonify({'success': True, 'leaderboard': leaderboard}), 200
-
-    except Exception as e:
-        print("Leaderboard error:", e)
-        return jsonify({'success': False, 'error': 'Failed to load leaderboard'}), 500
-
-    finally:
-        # Close DB session generator safely (same pattern you use elsewhere)
-        try:
-            next(db_gen, None)
-        except StopIteration:
-            pass
-
-
-        """
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
         print("Database tables created")
     port = int(os.environ.get("PORT", 5000))
     socketio.run(app, host="0.0.0.0", port=port, debug=True, allow_unsafe_werkzeug=True)
-
-    
-    
-    

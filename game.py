@@ -44,25 +44,25 @@ def create_game(r, p1_id, p2_id, duration=DEFAULT_DURATION) -> str:
     r.set(f"game:{room}:time_left", duration)
     r.expire(f"game:{room}:time_left", GAME_TTL)
     
-    # Assign random words to each player
+    # Assign random words to each player (scoped to room AND player)
     word1 = random_word()
     word2 = random_word()
-    r.set(f"player:{p1_id}:word", word1)
-    r.set(f"player:{p2_id}:word", word2)
-    r.expire(f"player:{p1_id}:word", GAME_TTL)
-    r.expire(f"player:{p2_id}:word", GAME_TTL)
+    r.set(f"game:{room}:player:{p1_id}:word", word1)
+    r.set(f"game:{room}:player:{p2_id}:word", word2)
+    r.expire(f"game:{room}:player:{p1_id}:word", GAME_TTL)
+    r.expire(f"game:{room}:player:{p2_id}:word", GAME_TTL)
     
     return room
 
-def get_player_word(r, player_id) -> str:
-    """Retrieve the current word for a player."""
-    word = r.get(f"player:{player_id}:word")
+def get_player_word(r, room: str, player_id) -> str:
+    """Retrieve the current word for a player in a specific room."""
+    word = r.get(f"game:{room}:player:{player_id}:word")
     return word.decode() if isinstance(word, bytes) else word
 
-def set_player_word(r, player_id, word: str):
-    """Assign a new word to a player."""
-    r.set(f"player:{player_id}:word", word)
-    r.expire(f"player:{player_id}:word", GAME_TTL)
+def set_player_word(r, room: str, player_id, word: str):
+    """Assign a new word to a player in a specific room."""
+    r.set(f"game:{room}:player:{player_id}:word", word)
+    r.expire(f"game:{room}:player:{player_id}:word", GAME_TTL)
 
 def increment_score(r, room: str, player_id):
     """
@@ -112,6 +112,18 @@ def end_game_cleanup(r, room: str):
     
     Called after match data is persisted to database.
     """
+    gkey = f"game:{room}:meta"
+    game_meta = r.hgetall(gkey)
+    
+    # Clean up game metadata and timer
     r.delete(f"game:{room}:meta")
     r.delete(f"game:{room}:time_left")
-    # Note: player word keys expire naturally via TTL
+    
+    # Clean up player words if we have player IDs
+    if game_meta:
+        p1 = game_meta.get("p1")
+        p2 = game_meta.get("p2")
+        if p1:
+            r.delete(f"game:{room}:player:{p1}:word")
+        if p2:
+            r.delete(f"game:{room}:player:{p2}:word")
