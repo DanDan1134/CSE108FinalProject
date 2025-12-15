@@ -545,7 +545,7 @@
        winnerId === currentUserId ? "success" : "info"
      );
  
-     // ADDED: update local streak + recent results for the Detailed Stats modal
+     // Update local streak + recent results for the Detailed Stats modal
      try {
        const didWin = (winnerId != null && currentUserId != null && winnerId === currentUserId);
        const didTie = (winnerId == null);
