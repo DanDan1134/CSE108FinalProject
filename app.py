@@ -57,7 +57,7 @@ QUEUE_KEY = "matchmaking_queue"
 EVENT_CHANNEL = "events"
 
 # Presence tracking to prevent matching with offline/stale queue entries
-ONLINE_TTL = 60  # seconds
+ONLINE_TTL = 600  # seconds
 
 
 def touch_online(user_id: int):
@@ -101,6 +101,12 @@ def lobby():
 def game_page():
     """Game page: waiting room + gameplay."""
     return render_template("game.html")
+
+
+@app.route("/singleplayer")
+@login_required
+def singleplayer_page():
+    return render_template("singleplayer.html")
 
 
 @app.route("/active_match")
@@ -188,6 +194,9 @@ def logout():
 @login_required
 def join_queue():
     """Add authenticated user to matchmaking queue."""
+    # Mark presence so matchmaker accepts this user even before Socket.IO heartbeat
+    touch_online(current_user.id)
+
     # Check if already in queue
     queue_list = r.lrange(QUEUE_KEY, 0, -1)
     if str(current_user.id) in queue_list:
@@ -195,6 +204,17 @@ def join_queue():
 
     r.lpush(QUEUE_KEY, current_user.id)
     return jsonify({"queued": True, "user_id": current_user.id})
+
+
+@app.route("/queue/cancel", methods=["POST"])
+@login_required
+def cancel_queue():
+    """Remove the current user from the matchmaking queue."""
+    try:
+        r.lrem(QUEUE_KEY, 0, str(current_user.id))
+    except Exception:
+        return jsonify({"success": False, "error": "Redis error"}), 500
+    return jsonify({"success": True})
 
 
 @app.route("/stats")
@@ -225,6 +245,7 @@ def leaderboard():
         "total_wins": u.total_wins,
         "win_rate": round(u.win_rate, 1)
     } for u in top_players])
+
 
 @app.route("/match_info")
 @login_required
@@ -263,6 +284,8 @@ def match_info():
         "opponent_id": (p2_id if you_is_p1 else p1_id),
         "opponent_username": (p2.username if you_is_p1 else p1.username) if (p1 and p2) else "Opponent",
     })
+
+
 # --------------------
 # Socket.IO events
 # --------------------
@@ -311,6 +334,7 @@ def on_join_room(data):
         "username": current_user.username
     }, room=room)
 
+
 @socketio.on("surrender")
 def on_surrender(data):
     """End the game immediately: surrendering player loses, opponent wins."""
@@ -348,7 +372,7 @@ def on_surrender(data):
     score_p2 = int(scores.get("p2", 0))
     duration = int(meta.get("duration", 300))
 
-    # Persist match + update stats (same behavior as game_worker)
+    # Persist match + update stats
     try:
         match = Match(
             room=room,
@@ -381,7 +405,7 @@ def on_surrender(data):
         emit("guess_error", {"error": "Failed to save surrender result"})
         return
 
-    # Notify both clients (SocketIO message_queue will broadcast cross-process)
+    # Notify both clients
     socketio.emit("match_saved", {
         "winner_id": winner_id,
         "scores": {"p1": score_p1, "p2": score_p2}
@@ -395,12 +419,13 @@ def on_surrender(data):
         "surrendered_by": current_user.id
     }, room=room)
 
-    # Stop timer thread + cleanup Redis keys so game_worker won't double-end it
+    # Cleanup Redis keys
     try:
         r.delete(f"game:{room}:time_left")
     except Exception:
         pass
     game_module.end_game_cleanup(r, room)
+
 
 @socketio.on("submit_guess")
 def on_submit_guess(data):
